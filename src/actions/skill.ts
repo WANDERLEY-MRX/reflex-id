@@ -26,7 +26,7 @@ export async function addSkillAction(data: SkillInput) {
   const existingSkill = await db.skill.findFirst({
     where: {
       userId: session.user.id,
-      name: { equals: validated.data.name, mode: "insensitive" },
+      name: validated.data.name,
     },
   });
 

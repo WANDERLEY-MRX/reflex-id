@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Notification, Prisma } from "@prisma/client";
+import type { Notification } from "@prisma/client";
 import type { PaginatedResult } from "@/types";
 
 export interface NotificationFilters {
@@ -20,26 +20,26 @@ export class NotificationRepository {
     page: number = 1,
     pageSize: number = 20
   ): Promise<PaginatedResult<Notification>> {
-    const where: Prisma.NotificationWhereInput = { userId: filters.userId };
+    const where: Record<string, unknown> = { userId: filters.userId };
 
-    if (filters.type) where.type = filters.type as Prisma.EnumNotificationTypeFilter["equals"];
+    if (filters.type) where.type = filters.type;
     if (filters.read !== undefined) where.read = filters.read;
     if (filters.createdAfter || filters.createdBefore) {
       where.createdAt = {};
-      if (filters.createdAfter) where.createdAt.gte = filters.createdAfter;
-      if (filters.createdBefore) where.createdAt.lte = filters.createdBefore;
+      if (filters.createdAfter) (where.createdAt as Record<string, unknown>).gte = filters.createdAfter;
+      if (filters.createdBefore) (where.createdAt as Record<string, unknown>).lte = filters.createdBefore;
     }
 
     const skip = (page - 1) * pageSize;
 
     const [data, total] = await Promise.all([
       db.notification.findMany({
-        where,
+        where: where as any,
         skip,
         take: pageSize,
         orderBy: { createdAt: "desc" },
       }),
-      db.notification.count({ where }),
+      db.notification.count({ where: where as any }),
     ]);
 
     return {
@@ -53,11 +53,11 @@ export class NotificationRepository {
     };
   }
 
-  async create(data: Prisma.NotificationCreateInput): Promise<Notification> {
+  async create(data: any): Promise<Notification> {
     return db.notification.create({ data });
   }
 
-  async createMany(data: Prisma.NotificationCreateManyInput[]): Promise<void> {
+  async createMany(data: any[]): Promise<void> {
     await db.notification.createMany({ data });
   }
 

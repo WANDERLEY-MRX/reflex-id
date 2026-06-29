@@ -1,4 +1,5 @@
-import type { ConfidenceLevel, Validation } from "@prisma/client";
+import type { Validation } from "@prisma/client";
+import type { ConfidenceLevel } from "@/constants";
 import { config } from "@/config";
 
 export interface ConfidenceInput {

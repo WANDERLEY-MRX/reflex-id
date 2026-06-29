@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Project, Prisma } from "@prisma/client";
+import type { Project } from "@prisma/client";
 import type { ProjectWithUser, PaginatedResult } from "@/types";
 
 export interface ProjectFilters {
@@ -34,35 +34,32 @@ export class ProjectRepository {
     page: number = 1,
     pageSize: number = 10
   ): Promise<PaginatedResult<Project>> {
-    const where: Prisma.ProjectWhereInput = {};
+    const where: Record<string, unknown> = {};
 
     if (filters.userId) where.userId = filters.userId;
     if (filters.search) {
       where.OR = [
-        { name: { contains: filters.search, mode: "insensitive" } },
-        { description: { contains: filters.search, mode: "insensitive" } },
+        { name: { contains: filters.search } },
+        { description: { contains: filters.search } },
       ];
-    }
-    if (filters.technologies && filters.technologies.length > 0) {
-      where.technologies = { hasSome: filters.technologies };
     }
     if (filters.createdAfter || filters.createdBefore) {
       where.createdAt = {};
-      if (filters.createdAfter) where.createdAt.gte = filters.createdAfter;
-      if (filters.createdBefore) where.createdAt.lte = filters.createdBefore;
+      if (filters.createdAfter) (where.createdAt as Record<string, unknown>).gte = filters.createdAfter;
+      if (filters.createdBefore) (where.createdAt as Record<string, unknown>).lte = filters.createdBefore;
     }
 
     const skip = (page - 1) * pageSize;
 
     const [data, total] = await Promise.all([
       db.project.findMany({
-        where,
+        where: where as any,
         skip,
         take: pageSize,
         include: { user: { select: { id: true, name: true } } },
         orderBy: { createdAt: "desc" },
       }),
-      db.project.count({ where }),
+      db.project.count({ where: where as any }),
     ]);
 
     return {
@@ -76,11 +73,11 @@ export class ProjectRepository {
     };
   }
 
-  async create(data: Prisma.ProjectCreateInput): Promise<Project> {
+  async create(data: any): Promise<Project> {
     return db.project.create({ data });
   }
 
-  async update(id: string, data: Prisma.ProjectUpdateInput): Promise<Project> {
+  async update(id: string, data: any): Promise<Project> {
     return db.project.update({ where: { id }, data });
   }
 

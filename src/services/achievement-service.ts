@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { AchievementType } from "@prisma/client";
+import type { AchievementType } from "@/constants";
 import { createAuditLog } from "@/lib/audit";
 
 interface AchievementDefinition {

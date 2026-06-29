@@ -54,3 +54,13 @@ export function resetPasswordEmail(name: string, token: string) {
     html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;"><h1>Redefinir Senha</h1><p>Olá ${name}, clique no link abaixo para redefinir sua senha:</p><a href="${url}" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 8px;">Redefinir Senha</a><p>Se não foi você, ignore este email.</p></div>`,
   };
 }
+
+export async function sendVerificationEmail(email: string, token: string) {
+  const template = verificationEmail(email, token);
+  return sendEmail({ to: email, subject: template.subject, html: template.html });
+}
+
+export async function sendPasswordResetEmail(email: string, token: string) {
+  const template = resetPasswordEmail(email, token);
+  return sendEmail({ to: email, subject: template.subject, html: template.html });
+}

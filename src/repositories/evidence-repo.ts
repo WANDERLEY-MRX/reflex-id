@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Evidence, Prisma } from "@prisma/client";
+import type { Evidence } from "@prisma/client";
 import type { EvidenceWithRelations, PaginatedResult } from "@/types";
 
 export interface EvidenceFilters {
@@ -45,39 +45,39 @@ export class EvidenceRepository {
     page: number = 1,
     pageSize: number = 10
   ): Promise<PaginatedResult<Evidence>> {
-    const where: Prisma.EvidenceWhereInput = {};
+    const where: Record<string, unknown> = {};
 
     if (filters.userId) where.userId = filters.userId;
-    if (filters.type) where.type = filters.type as Prisma.EnumEvidenceTypeFilter["equals"];
+    if (filters.type) where.type = filters.type;
     if (filters.verificationStatus) {
-      where.verificationStatus = filters.verificationStatus as Prisma.EnumVerificationStatusFilter["equals"];
+      where.verificationStatus = filters.verificationStatus;
     }
     if (filters.confidenceLevel) {
-      where.confidenceLevel = filters.confidenceLevel as Prisma.EnumConfidenceLevelFilter["equals"];
+      where.confidenceLevel = filters.confidenceLevel;
     }
     if (filters.search) {
       where.OR = [
-        { title: { contains: filters.search, mode: "insensitive" } },
-        { description: { contains: filters.search, mode: "insensitive" } },
+        { title: { contains: filters.search } },
+        { description: { contains: filters.search } },
       ];
     }
     if (filters.createdAfter || filters.createdBefore) {
       where.createdAt = {};
-      if (filters.createdAfter) where.createdAt.gte = filters.createdAfter;
-      if (filters.createdBefore) where.createdAt.lte = filters.createdBefore;
+      if (filters.createdAfter) (where.createdAt as Record<string, unknown>).gte = filters.createdAfter;
+      if (filters.createdBefore) (where.createdAt as Record<string, unknown>).lte = filters.createdBefore;
     }
 
     const skip = (page - 1) * pageSize;
 
     const [data, total] = await Promise.all([
       db.evidence.findMany({
-        where,
+        where: where as any,
         skip,
         take: pageSize,
         include: { files: true, validations: true, user: { select: { id: true, name: true } } },
         orderBy: { createdAt: "desc" },
       }),
-      db.evidence.count({ where }),
+      db.evidence.count({ where: where as any }),
     ]);
 
     return {
@@ -91,11 +91,11 @@ export class EvidenceRepository {
     };
   }
 
-  async create(data: Prisma.EvidenceCreateInput): Promise<Evidence> {
+  async create(data: any): Promise<Evidence> {
     return db.evidence.create({ data });
   }
 
-  async update(id: string, data: Prisma.EvidenceUpdateInput): Promise<Evidence> {
+  async update(id: string, data: any): Promise<Evidence> {
     return db.evidence.update({ where: { id }, data });
   }
 
@@ -109,7 +109,7 @@ export class EvidenceRepository {
 
   async countByStatus(status: string): Promise<number> {
     return db.evidence.count({
-      where: { verificationStatus: status as Prisma.EnumVerificationStatusFilter["equals"] },
+      where: { verificationStatus: status },
     });
   }
 

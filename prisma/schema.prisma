@@ -98,8 +98,8 @@ model Profile {
   linkedin    String?
   twitter     String?
   instagram   String?
-  interests   String
-  goals       String
+  interests   String?
+  goals       String?
   availability String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

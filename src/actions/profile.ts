@@ -18,7 +18,7 @@ export async function updateProfileAction(data: ProfileInput) {
     return { success: false, error: validated.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
-  const { slug, ...rest } = validated.data;
+  const { slug, interests, goals, ...rest } = validated.data;
 
   const existingProfile = await db.profile.findUnique({
     where: { userId: session.user.id },
@@ -39,6 +39,8 @@ export async function updateProfileAction(data: ProfileInput) {
     where: { userId: session.user.id },
     data: {
       slug,
+      interests: Array.isArray(interests) ? JSON.stringify(interests) : interests ?? undefined,
+      goals: Array.isArray(goals) ? JSON.stringify(goals) : goals ?? undefined,
       ...rest,
     },
   });

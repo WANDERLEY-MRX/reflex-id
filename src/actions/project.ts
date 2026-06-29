@@ -24,11 +24,11 @@ export async function createProjectAction(data: ProjectInput) {
       userId: session.user.id,
       name,
       description,
-      technologies,
-      images: images ?? [],
-      links: links ?? [],
+      technologies: Array.isArray(technologies) ? JSON.stringify(technologies) : technologies,
+      images: images ? JSON.stringify(images) : undefined,
+      links: links ? JSON.stringify(links) : undefined,
       results,
-      skillsAcquired,
+      skillsAcquired: Array.isArray(skillsAcquired) ? JSON.stringify(skillsAcquired) : skillsAcquired,
     },
   });
 
@@ -63,9 +63,16 @@ export async function updateProjectAction(id: string, data: ProjectUpdateInput) 
     return { success: false, error: "Sem permissão para editar este projeto" };
   }
 
+  const { technologies, images, links, skillsAcquired, ...rest } = validated.data;
   const updated = await db.project.update({
     where: { id },
-    data: validated.data,
+    data: {
+      ...rest,
+      technologies: technologies !== undefined ? JSON.stringify(technologies) : undefined,
+      images: images !== undefined ? JSON.stringify(images) : undefined,
+      links: links !== undefined ? JSON.stringify(links) : undefined,
+      skillsAcquired: skillsAcquired !== undefined ? JSON.stringify(skillsAcquired) : undefined,
+    },
   });
 
   await createAuditLog({

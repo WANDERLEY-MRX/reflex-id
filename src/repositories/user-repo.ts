@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { User, Prisma } from "@prisma/client";
+import type { User } from "@prisma/client";
 import type { UserWithProfile, PaginatedResult } from "@/types";
 
 export interface UserFilters {
@@ -30,9 +30,9 @@ export class UserRepository {
     page: number = 1,
     pageSize: number = 10
   ): Promise<PaginatedResult<User>> {
-    const where: Prisma.UserWhereInput = { deletedAt: null };
+    const where: Record<string, unknown> = { deletedAt: null };
 
-    if (filters.role) where.role = filters.role as Prisma.EnumUserRoleFilter["equals"];
+    if (filters.role) where.role = filters.role;
     if (filters.emailVerified !== undefined) {
       where.emailVerified = filters.emailVerified ? { not: null } : null;
     }
@@ -42,26 +42,26 @@ export class UserRepository {
     }
     if (filters.search) {
       where.OR = [
-        { name: { contains: filters.search, mode: "insensitive" } },
-        { email: { contains: filters.search, mode: "insensitive" } },
+        { name: { contains: filters.search } },
+        { email: { contains: filters.search } },
       ];
     }
     if (filters.createdAfter || filters.createdBefore) {
       where.createdAt = {};
-      if (filters.createdAfter) where.createdAt.gte = filters.createdAfter;
-      if (filters.createdBefore) where.createdAt.lte = filters.createdBefore;
+      if (filters.createdAfter) (where.createdAt as Record<string, unknown>).gte = filters.createdAfter;
+      if (filters.createdBefore) (where.createdAt as Record<string, unknown>).lte = filters.createdBefore;
     }
 
     const skip = (page - 1) * pageSize;
 
     const [data, total] = await Promise.all([
       db.user.findMany({
-        where,
+        where: where as any,
         skip,
         take: pageSize,
         orderBy: { createdAt: "desc" },
       }),
-      db.user.count({ where }),
+      db.user.count({ where: where as any }),
     ]);
 
     return {
@@ -75,7 +75,7 @@ export class UserRepository {
     };
   }
 
-  async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
+  async update(id: string, data: any): Promise<User> {
     return db.user.update({ where: { id }, data });
   }
 
@@ -94,9 +94,9 @@ export class UserRepository {
   }
 
   async count(filters: UserFilters = {}): Promise<number> {
-    const where: Prisma.UserWhereInput = { deletedAt: null };
-    if (filters.role) where.role = filters.role as Prisma.EnumUserRoleFilter["equals"];
-    return db.user.count({ where });
+    const where: Record<string, unknown> = { deletedAt: null };
+    if (filters.role) where.role = filters.role;
+    return db.user.count({ where: where as any });
   }
 
   async getStats() {

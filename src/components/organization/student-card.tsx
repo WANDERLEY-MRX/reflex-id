@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import type { ConfidenceLevel } from "@prisma/client"
+import type { ConfidenceLevel } from "@/constants"
 
 export interface StudentCardProps {
   id: string

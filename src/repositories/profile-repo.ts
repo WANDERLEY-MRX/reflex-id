@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Profile, Prisma } from "@prisma/client";
+import type { Profile } from "@prisma/client";
 import type { UserWithProfile, PaginatedResult } from "@/types";
 
 export interface ProfileFilters {
@@ -44,35 +44,31 @@ export class ProfileRepository {
     page: number = 1,
     pageSize: number = 10
   ): Promise<PaginatedResult<Profile>> {
-    const where: Prisma.ProfileWhereInput = {};
+    const where: Record<string, unknown> = {};
 
     if (filters.search) {
       where.OR = [
-        { slug: { contains: filters.search, mode: "insensitive" } },
-        { user: { name: { contains: filters.search, mode: "insensitive" } } },
+        { slug: { contains: filters.search } },
       ];
     }
     if (filters.hasBio !== undefined) {
       where.bio = filters.hasBio ? { not: null } : null;
     }
     if (filters.location) {
-      where.location = { contains: filters.location, mode: "insensitive" };
-    }
-    if (filters.interests && filters.interests.length > 0) {
-      where.interests = { hasSome: filters.interests };
+      where.location = { contains: filters.location };
     }
 
     const skip = (page - 1) * pageSize;
 
     const [data, total] = await Promise.all([
       db.profile.findMany({
-        where,
+        where: where as any,
         skip,
         take: pageSize,
         include: { user: { select: { id: true, name: true, avatar: true } } },
         orderBy: { updatedAt: "desc" },
       }),
-      db.profile.count({ where }),
+      db.profile.count({ where: where as any }),
     ]);
 
     return {
@@ -86,13 +82,13 @@ export class ProfileRepository {
     };
   }
 
-  async create(data: Prisma.ProfileCreateInput): Promise<Profile> {
+  async create(data: any): Promise<Profile> {
     return db.profile.create({ data });
   }
 
   async update(
     userId: string,
-    data: Prisma.ProfileUpdateInput
+    data: any
   ): Promise<Profile> {
     return db.profile.update({ where: { userId }, data });
   }
