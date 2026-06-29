@@ -9,6 +9,7 @@ import { z } from "zod"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useLocalAuth } from "@/providers/local-auth-provider"
 
 const registerSchema = z
   .object({
@@ -27,6 +28,7 @@ type RegisterData = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { signUp } = useLocalAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -42,18 +44,9 @@ export default function RegisterPage() {
   async function onSubmit(data: RegisterData) {
     setIsLoading(true)
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          password: data.password,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message ?? "Erro ao criar conta")
+      const result = await signUp(data.email, data.name, data.password)
+      if (!result.success) {
+        throw new Error(result.error ?? "Erro ao criar conta")
       }
       toast.success("Conta criada com sucesso!")
       router.push("/dashboard")
@@ -218,35 +211,6 @@ export default function RegisterPage() {
           {isLoading ? "Criando conta..." : "Criar conta"}
         </button>
       </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-200 dark:border-zinc-700" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-zinc-400 dark:bg-zinc-900">
-            Ou continuar com
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { name: "Google", provider: "google" },
-          { name: "Apple", provider: "apple" },
-          { name: "GitHub", provider: "github" },
-          { name: "Microsoft", provider: "microsoft" },
-        ].map(({ name, provider }) => (
-          <button
-            key={provider}
-            type="button"
-            onClick={() => {/* signIn(provider) */}}
-            className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            {name}
-          </button>
-        ))}
-      </div>
 
       <p className="text-center text-sm text-zinc-500">
         Já tem uma conta?{" "}

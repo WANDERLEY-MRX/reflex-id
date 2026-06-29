@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { CombinedProviders } from "@/providers";
-import { auth } from "@/lib/auth-config";
+import { Providers } from "@/providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,13 +19,11 @@ export const metadata: Metadata = {
     "Empresas e escolas confiam mais em evidências do que em promessas. Construa sua identidade digital baseada em provas reais.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-  
   return (
     <html
       lang="pt-BR"
@@ -34,9 +31,9 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <CombinedProviders session={session}>
+        <Providers>
           {children}
-        </CombinedProviders>
+        </Providers>
       </body>
     </html>
   );

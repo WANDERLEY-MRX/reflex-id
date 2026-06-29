@@ -1,22 +1,11 @@
 "use client";
 
+import { useLocalAuth } from "@/providers/local-auth-provider";
 import { SessionProvider } from "next-auth/react";
-import type { Session } from "next-auth";
-import type { ReactNode } from "react";
+import { type ReactNode } from "react";
 
-interface AuthProviderProps {
-  children: ReactNode;
-  session?: Session | null;
+export function AuthProvider({ children, session }: { children: ReactNode; session?: unknown }) {
+  return <SessionProvider session={session as any}>{children}</SessionProvider>;
 }
 
-export function AuthProvider({ children, session }: AuthProviderProps) {
-  return (
-    <SessionProvider
-      session={session}
-      refetchInterval={5 * 60}
-      refetchOnWindowFocus={true}
-    >
-      {children}
-    </SessionProvider>
-  );
-}
+export { useLocalAuth as useAuth };

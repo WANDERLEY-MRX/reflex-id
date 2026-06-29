@@ -1,3 +1,4 @@
-import { handlers } from "@/lib/auth-config";
+import { NextResponse } from "next/server";
 
-export const { GET, POST } = handlers;
+export const GET = () => NextResponse.json({ error: "Not found" }, { status: 404 });
+export const POST = () => NextResponse.json({ error: "Not found" }, { status: 404 });

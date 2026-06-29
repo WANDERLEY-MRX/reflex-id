@@ -16,15 +16,14 @@ import {
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { useDashboardStore } from "@/store/dashboard-store"
-import { useUser } from "@/hooks/use-user"
-import { useNotifications } from "@/hooks/use-notifications"
+import { useLocalAuth } from "@/providers/local-auth-provider"
 
 export function Topbar() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { toggleSidebar } = useDashboardStore()
-  const { data: user } = useUser()
-  const { data: notifications } = useNotifications()
+  const { session, signOut } = useLocalAuth()
+  const user = session?.user
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -33,7 +32,7 @@ export function Topbar() {
   const profileRef = useRef<HTMLDivElement>(null)
 
   const unreadCount =
-    notifications?.filter((n) => !n.read).length ?? 0
+    0
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -201,7 +200,7 @@ export function Topbar() {
               </button>
               <hr className="my-1 border-zinc-200 dark:border-zinc-700" />
               <button
-                onClick={() => { /* sign out */ setProfileOpen(false) }}
+                onClick={() => { signOut(); router.push("/"); setProfileOpen(false) }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
               >
                 <LogOut size={16} /> Sair

@@ -209,7 +209,7 @@ export const organizationSchema = z.object({
 });
 
 export const validationSchema = z.object({
-  evidenceId: z.string().uuid("ID de evidência inválido"),
+  evidenceId: z.string().min(1, "ID de evidência inválido"),
   status: z.enum(["APPROVED", "REJECTED"]),
   comment: z
     .string()
@@ -242,7 +242,7 @@ export const commentSchema = z.object({
 });
 
 export const reportSchema = z.object({
-  targetId: z.string().uuid("ID do alvo inválido"),
+  targetId: z.string().min(1, "ID do alvo inválido"),
   targetType: z.enum(["EVIDENCE", "COMMENT", "PROFILE", "ORGANIZATION"]),
   reason: z
     .string()

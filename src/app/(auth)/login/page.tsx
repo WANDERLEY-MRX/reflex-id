@@ -9,6 +9,7 @@ import { z } from "zod"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useLocalAuth } from "@/providers/local-auth-provider"
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -19,6 +20,7 @@ type LoginData = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
+  const { signIn } = useLocalAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -33,14 +35,9 @@ export default function LoginPage() {
   async function onSubmit(data: LoginData) {
     setIsLoading(true)
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message ?? "Erro ao fazer login")
+      const result = await signIn(data.email, data.password)
+      if (!result.success) {
+        throw new Error(result.error ?? "Erro ao fazer login")
       }
       toast.success("Login realizado com sucesso!")
       router.push("/dashboard")
@@ -57,6 +54,9 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold">Entrar</h1>
         <p className="text-sm text-zinc-500">
           Acesse sua conta Reflex ID
+        </p>
+        <p className="text-xs text-zinc-400">
+          Demo: admin@reflexid.com / senha123
         </p>
       </div>
 
@@ -133,35 +133,6 @@ export default function LoginPage() {
           {isLoading ? "Entrando..." : "Entrar"}
         </button>
       </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-200 dark:border-zinc-700" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-zinc-400 dark:bg-zinc-900">
-            Ou continuar com
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { name: "Google", provider: "google" },
-          { name: "Apple", provider: "apple" },
-          { name: "GitHub", provider: "github" },
-          { name: "Microsoft", provider: "microsoft" },
-        ].map(({ name, provider }) => (
-          <button
-            key={provider}
-            type="button"
-            onClick={() => {/* signIn(provider) */}}
-            className="flex items-center justify-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            {name}
-          </button>
-        ))}
-      </div>
 
       <p className="text-center text-sm text-zinc-500">
         Não tem uma conta?{" "}

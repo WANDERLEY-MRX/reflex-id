@@ -1,22 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+// Stub - Database operations are handled by local-db.ts (localStorage for MVP)
+// This file exists only to prevent import errors in files that still reference it
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-function createPrismaClient(): PrismaClient {
-  const dbPath = process.env.DATABASE_URL?.replace("file:", "") || "./prisma/dev.db";
-  const adapter = new PrismaBetterSqlite3({ url: dbPath });
-
-  return new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-  });
-}
-
-export const db = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
-}
+export const db = {} as Record<string, never>;

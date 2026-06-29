@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Copy, Check, QrCode, FileDown, Code } from "lucide-react"
+import { Copy, Check, QrCode, Code } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
@@ -24,8 +24,6 @@ interface ShareModalProps {
 
 function ShareModal({ open, onOpenChange, url, title = "Compartilhar Perfil", className }: ShareModalProps) {
   const [copied, setCopied] = React.useState(false)
-  const [qrCodeDataUrl, setQrCodeDataUrl] = React.useState<string | null>(null)
-  const [loadingQr, setLoadingQr] = React.useState(false)
 
   const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "")
 
@@ -36,20 +34,6 @@ function ShareModal({ open, onOpenChange, url, title = "Compartilhar Perfil", cl
       setTimeout(() => setCopied(false), 2000)
     } catch {
       // clipboard not available
-    }
-  }
-
-  const handleGenerateQR = async () => {
-    if (qrCodeDataUrl) return
-    setLoadingQr(true)
-    try {
-      const { generateQRCode } = await import("@/lib/utils")
-      const dataUrl = await generateQRCode(shareUrl)
-      setQrCodeDataUrl(dataUrl)
-    } catch {
-      // qr generation failed
-    } finally {
-      setLoadingQr(false)
     }
   }
 
@@ -68,24 +52,7 @@ function ShareModal({ open, onOpenChange, url, title = "Compartilhar Perfil", cl
               {copied ? "Copiado" : "Copiar"}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Compartilhe este link para que outras pessoas vejam seu perfil.</p>
-        </div>
-      ),
-    },
-    {
-      value: "qr",
-      label: "QR Code",
-      content: (
-        <div className="flex flex-col items-center gap-3 py-2">
-          {qrCodeDataUrl ? (
-            <img src={qrCodeDataUrl} alt="QR Code" className="h-40 w-40 rounded-lg" />
-          ) : (
-            <Button variant="outline" onClick={handleGenerateQR} loading={loadingQr}>
-              <QrCode className="h-4 w-4 mr-2" />
-              Gerar QR Code
-            </Button>
-          )}
-          <p className="text-xs text-muted-foreground">Escaneie para acessar o perfil.</p>
+          <p className="text-xs text-zinc-500">Compartilhe este link para que outras pessoas vejam seu perfil.</p>
         </div>
       ),
     },
@@ -101,7 +68,7 @@ function ShareModal({ open, onOpenChange, url, title = "Compartilhar Perfil", cl
               Copiar
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Copie o código HTML para incorporar seu perfil em outros sites.</p>
+          <p className="text-xs text-zinc-500">Copie o código HTML para incorporar seu perfil em outros sites.</p>
         </div>
       ),
     },
@@ -118,14 +85,10 @@ function ShareModal({ open, onOpenChange, url, title = "Compartilhar Perfil", cl
         </DialogHeader>
 
         <Tabs defaultValue="link">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="link">
               <Copy className="h-3.5 w-3.5 mr-1.5" />
               Link
-            </TabsTrigger>
-            <TabsTrigger value="qr">
-              <QrCode className="h-3.5 w-3.5 mr-1.5" />
-              QR Code
             </TabsTrigger>
             <TabsTrigger value="embed">
               <Code className="h-3.5 w-3.5 mr-1.5" />
