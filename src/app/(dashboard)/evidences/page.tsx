@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Upload,
   FileText,
@@ -16,20 +17,14 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useLocalAuth } from "@/providers/local-auth-provider"
+import {
+  getEvidencesByUserId,
+  addEvidence as addEvidenceDb,
+  type LocalEvidence,
+} from "@/lib/local-db"
 
 type EvidenceType = "pdf" | "image" | "video" | "link"
-
-interface Evidence {
-  id: string
-  title: string
-  type: EvidenceType
-  file?: string
-  url?: string
-  hash: string
-  timestamp: string
-  origin: string
-  status: "pending" | "verified" | "rejected"
-}
 
 const typeIcons: Record<EvidenceType, typeof FileText> = {
   pdf: FileText,
@@ -45,39 +40,10 @@ const typeLabels: Record<EvidenceType, string> = {
   link: "Link",
 }
 
-const initialEvidences: Evidence[] = [
-  {
-    id: "1",
-    title: "Diploma de Graduação",
-    type: "pdf",
-    hash: "sha256:a1b2c3d4e5f6...",
-    timestamp: "2024-03-15T10:30:00Z",
-    origin: "Universidade Federal",
-    status: "verified",
-  },
-  {
-    id: "2",
-    title: "Certificado de Curso",
-    type: "image",
-    hash: "sha256:f6e5d4c3b2a1...",
-    timestamp: "2024-02-20T14:00:00Z",
-    origin: "Plataforma de Cursos",
-    status: "pending",
-  },
-  {
-    id: "3",
-    title: "Portfólio Online",
-    type: "link",
-    url: "https://portfolio.example.com",
-    hash: "sha256:9876543210...",
-    timestamp: "2024-01-10T09:00:00Z",
-    origin: "Self",
-    status: "pending",
-  },
-]
-
 export default function EvidencesPage() {
-  const [evidences, setEvidences] = useState<Evidence[]>(initialEvidences)
+  const router = useRouter()
+  const { session, loading: authLoading } = useLocalAuth()
+  const [evidences, setEvidences] = useState<LocalEvidence[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [newEvidence, setNewEvidence] = useState({
@@ -86,25 +52,34 @@ export default function EvidencesPage() {
     url: "",
   })
 
+  useEffect(() => {
+    if (!authLoading && !session) router.push("/login")
+  }, [session, authLoading, router])
+
+  useEffect(() => {
+    if (session) setEvidences(getEvidencesByUserId(session.user.id))
+  }, [session])
+
+  function reload() {
+    if (session) setEvidences(getEvidencesByUserId(session.user.id))
+  }
+
   async function addEvidence() {
-    if (!newEvidence.title.trim()) return
+    if (!newEvidence.title.trim() || !session) return
     setIsLoading(true)
     try {
-      setEvidences((prev) => [
-        {
-          id: crypto.randomUUID(),
-          title: newEvidence.title.trim(),
-          type: newEvidence.type,
-          url: newEvidence.url || undefined,
-          hash: `sha256:${Array.from({ length: 12 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}...`,
-          timestamp: new Date().toISOString(),
-          origin: "Self",
-          status: "pending",
-        },
-        ...prev,
-      ])
+      addEvidenceDb(session.user.id, {
+        title: newEvidence.title.trim(),
+        description: null,
+        type: newEvidence.type.toUpperCase(),
+        verificationStatus: "PENDING",
+        confidenceLevel: "MEDIUM",
+        source: "Self",
+        fileUrl: newEvidence.url || null,
+      })
       setNewEvidence({ title: "", type: "pdf", url: "" })
       setIsAdding(false)
+      reload()
       toast.success("Evidência adicionada!")
     } catch {
       toast.error("Erro ao adicionar evidência")
@@ -113,32 +88,28 @@ export default function EvidencesPage() {
     }
   }
 
-  function requestVerification(id: string) {
-    setEvidences((prev) =>
-      prev.map((e) =>
-        e.id === id ? { ...e, status: "pending" as const } : e,
-      ),
-    )
-    toast.success("Solicitação de verificação enviada!")
+  function getStatusDisplay(status: string) {
+    switch (status) {
+      case "VERIFIED":
+        return { label: "Verificado", class: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", icon: ShieldCheck }
+      case "REJECTED":
+        return { label: "Rejeitado", class: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300", icon: X }
+      default:
+        return { label: "Pendente", class: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300", icon: Clock }
+    }
   }
 
-  const statusConfig = {
-    verified: {
-      label: "Verificado",
-      class:
-        "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-      icon: ShieldCheck,
-    },
-    pending: {
-      label: "Pendente",
-      class: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
-      icon: Clock,
-    },
-    rejected: {
-      label: "Rejeitado",
-      class: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-      icon: X,
-    },
+  function getEvidenceType(raw: string): EvidenceType {
+    const lower = raw.toLowerCase()
+    if (lower.includes("pdf")) return "pdf"
+    if (lower.includes("image") || lower.includes("image")) return "image"
+    if (lower.includes("video")) return "video"
+    if (lower.includes("link")) return "link"
+    return "pdf"
+  }
+
+  if (authLoading || !session) {
+    return <div className="flex justify-center py-16"><Loader2 className="animate-spin" /></div>
   }
 
   return (
@@ -158,7 +129,6 @@ export default function EvidencesPage() {
         </button>
       </div>
 
-      {/* Add Form */}
       {isAdding && (
         <div className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center justify-between mb-4">
@@ -223,18 +193,6 @@ export default function EvidencesPage() {
               )}
             </div>
 
-            {newEvidence.type !== "link" && (
-              <div className="rounded-lg border-2 border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
-                <Upload size={32} className="mx-auto text-zinc-400" />
-                <p className="mt-2 text-sm text-zinc-500">
-                  Arraste o arquivo ou clique para selecionar
-                </p>
-                <p className="text-xs text-zinc-400">
-                  PDF, PNG, JPG, WebP, MP4 (máx. 50MB)
-                </p>
-              </div>
-            )}
-
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setIsAdding(false)}
@@ -255,10 +213,25 @@ export default function EvidencesPage() {
         </div>
       )}
 
-      {/* Evidence List */}
+      {evidences.length === 0 && !isAdding && (
+        <div className="rounded-xl border border-dashed border-zinc-300 p-16 text-center dark:border-zinc-700">
+          <FileText size={48} className="mx-auto text-zinc-300 dark:text-zinc-600" />
+          <p className="mt-3 text-sm text-zinc-500">
+            Nenhuma evidência adicionada ainda
+          </p>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="mt-4 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
+          >
+            Adicionar primeira evidência
+          </button>
+        </div>
+      )}
+
       {evidences.map((evidence) => {
-        const Icon = typeIcons[evidence.type]
-        const status = statusConfig[evidence.status]
+        const evType = getEvidenceType(evidence.type)
+        const Icon = typeIcons[evType]
+        const status = getStatusDisplay(evidence.verificationStatus)
         const StatusIcon = status.icon
 
         return (
@@ -276,8 +249,8 @@ export default function EvidencesPage() {
                   <div>
                     <h3 className="font-medium">{evidence.title}</h3>
                     <p className="text-xs text-zinc-500">
-                      {typeLabels[evidence.type]} ·{" "}
-                      {new Date(evidence.timestamp).toLocaleDateString("pt-BR")}
+                      {typeLabels[evType]} ·{" "}
+                      {new Date(evidence.createdAt).toLocaleDateString("pt-BR")}
                     </p>
                   </div>
                   <span
@@ -292,29 +265,26 @@ export default function EvidencesPage() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-zinc-500">
-                  <span className="flex items-center gap-1">
-                    <Hash size={12} />
-                    {evidence.hash}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} />
-                    Origem: {evidence.origin}
-                  </span>
+                  {evidence.source && (
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} />
+                      Origem: {evidence.source}
+                    </span>
+                  )}
                 </div>
 
-                <div className="mt-3 flex gap-2">
-                  {evidence.status === "pending" && (
-                    <button
-                      onClick={() => requestVerification(evidence.id)}
-                      className="flex items-center gap-1 rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-200 dark:bg-violet-900 dark:text-violet-300 dark:hover:bg-violet-800"
+                {evidence.fileUrl && (
+                  <div className="mt-3">
+                    <a
+                      href={evidence.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 dark:text-violet-400"
                     >
-                      <ShieldCheck size={12} /> Pedir Verificação
-                    </button>
-                  )}
-                  <button className="flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
-                    <Download size={12} /> Download
-                  </button>
-                </div>
+                      <Link2 size={12} /> Abrir link
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>

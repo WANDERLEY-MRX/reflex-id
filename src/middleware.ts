@@ -20,12 +20,16 @@ const authRoutes = ["/login", "/register", "/auth/error"];
 const protectedRoutes = [
   "/dashboard",
   "/profile",
-  "/evidence",
+  "/evidences",
   "/projects",
   "/organizations",
   "/settings",
   "/notifications",
-  "/api/trpc",
+  "/verifications",
+  "/achievements",
+  "/school",
+  "/company",
+  "/recruiter",
 ];
 
 const apiAuthPrefix = "/api/auth";
@@ -34,8 +38,7 @@ export function middleware(req: NextRequest) {
   const { nextUrl } = req;
 
   const sessionCookie =
-    req.cookies.get("authjs.session-token")?.value ||
-    req.cookies.get("__Secure-authjs.session-token")?.value;
+    req.cookies.get("reflexid_session")?.value;
 
   const isLoggedIn = !!sessionCookie;
   const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);

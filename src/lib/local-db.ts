@@ -495,6 +495,7 @@ export function markAllNotificationsRead(userId: string): void {
 export function setSession(userId: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(`${DB_PREFIX}session`, userId);
+  document.cookie = `${DB_PREFIX}session=${userId}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
 }
 
 export function getSession(): string | null {
@@ -505,6 +506,7 @@ export function getSession(): string | null {
 export function clearSession(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(`${DB_PREFIX}session`);
+  document.cookie = `${DB_PREFIX}session=; path=/; max-age=0`;
 }
 
 export function getCurrentUser(): LocalUser | null {

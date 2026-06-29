@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Save, Sun, Moon, Monitor } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -16,9 +16,9 @@ export default function SettingsPage() {
   const [name, setName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
     if (session?.user) setName(session.user.name)
-  })
+  }, [session])
 
   async function handleSave() {
     if (!session) return

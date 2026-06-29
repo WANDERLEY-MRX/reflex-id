@@ -1,18 +1,40 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Eye, ShieldCheck, TrendingUp, Trophy, ArrowRight, PenSquare, UserPlus } from "lucide-react"
+import { Eye, ShieldCheck, TrendingUp, Trophy, ArrowRight, PenSquare, UserPlus, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useLocalAuth } from "@/providers/local-auth-provider"
+import { getSkillsByUserId, getProjectsByUserId, getEvidencesByUserId } from "@/lib/local-db"
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { session, loading } = useLocalAuth()
   const user = session?.user
+
+  const [stats, setStats] = useState({ skills: 0, projects: 0, evidences: 0, verified: 0 })
+
+  useEffect(() => {
+    if (!loading && !session) {
+      router.push("/login")
+    }
+  }, [session, loading, router])
+
+  useEffect(() => {
+    if (!user) return
+    const skills = getSkillsByUserId(user.id)
+    const projects = getProjectsByUserId(user.id)
+    const evidences = getEvidencesByUserId(user.id)
+    const verified = evidences.filter((e) => e.verificationStatus === "VERIFIED").length
+    setStats({ skills: skills.length, projects: projects.length, evidences: evidences.length, verified })
+  }, [user])
 
   if (loading) {
     return <div className="flex justify-center py-16"><div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" /></div>
   }
+
+  if (!session) return null
 
   return (
     <div className="space-y-8">
@@ -28,9 +50,9 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Visualizações", value: "0", icon: Eye, color: "text-blue-500" },
-          { label: "Evidências", value: "0", icon: ShieldCheck, color: "text-green-500" },
-          { label: "Habilidades", value: "0", icon: TrendingUp, color: "text-orange-500" },
-          { label: "Conquistas", value: "0", icon: Trophy, color: "text-yellow-500" },
+          { label: "Evidências", value: String(stats.evidences), icon: ShieldCheck, color: "text-green-500" },
+          { label: "Habilidades", value: String(stats.skills), icon: TrendingUp, color: "text-orange-500" },
+          { label: "Conquistas", value: String(stats.verified), icon: Trophy, color: "text-yellow-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
             <div className="flex items-center justify-between">

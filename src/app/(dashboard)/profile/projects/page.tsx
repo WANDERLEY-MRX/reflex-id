@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -16,6 +17,14 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useLocalAuth } from "@/providers/local-auth-provider"
+import {
+  getProjectsByUserId,
+  addProject as addProjectDb,
+  updateProject as updateProjectDb,
+  deleteProject as deleteProjectDb,
+  type LocalProject,
+} from "@/lib/local-db"
 
 const projectSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -30,30 +39,10 @@ const projectSchema = z.object({
 
 type ProjectData = z.infer<typeof projectSchema>
 
-interface Project {
-  id: string
-  name: string
-  description: string
-  technologies: string
-  link?: string
-  github?: string
-  results?: string
-}
-
-const initialProjects: Project[] = [
-  {
-    id: "1",
-    name: "Reflex ID",
-    description: "Plataforma de identidade digital com verificação de credenciais",
-    technologies: "Next.js, TypeScript, Prisma, Tailwind CSS",
-    link: "https://reflex.id",
-    github: "https://github.com/reflex-id",
-    results: "100+ usuários ativos",
-  },
-]
-
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>(initialProjects)
+  const router = useRouter()
+  const { session, loading: authLoading } = useLocalAuth()
+  const [projects, setProjects] = useState<LocalProject[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -67,26 +56,31 @@ export default function ProjectsPage() {
     resolver: zodResolver(projectSchema),
   })
 
+  useEffect(() => {
+    if (!authLoading && !session) router.push("/login")
+  }, [session, authLoading, router])
+
+  useEffect(() => {
+    if (session) setProjects(getProjectsByUserId(session.user.id))
+  }, [session])
+
+  function reload() {
+    if (session) setProjects(getProjectsByUserId(session.user.id))
+  }
+
   function openAdd() {
-    reset({
-      name: "",
-      description: "",
-      technologies: "",
-      link: "",
-      github: "",
-      results: "",
-    })
+    reset({ name: "", description: "", technologies: "", link: "", github: "", results: "" })
     setIsAdding(true)
     setEditingId(null)
   }
 
-  function openEdit(project: Project) {
+  function openEdit(project: LocalProject) {
     reset({
       name: project.name,
-      description: project.description,
+      description: project.description ?? "",
       technologies: project.technologies,
-      link: project.link ?? "",
-      github: project.github ?? "",
+      link: project.links ?? "",
+      github: "",
       results: project.results ?? "",
     })
     setEditingId(project.id)
@@ -94,22 +88,33 @@ export default function ProjectsPage() {
   }
 
   async function onSubmit(data: ProjectData) {
+    if (!session) return
     setIsLoading(true)
     try {
       if (editingId) {
-        setProjects((prev) =>
-          prev.map((p) => (p.id === editingId ? { ...p, ...data } : p)),
-        )
+        updateProjectDb(editingId, {
+          name: data.name,
+          description: data.description,
+          technologies: data.technologies,
+          links: data.link || null,
+          results: data.results || null,
+        })
         toast.success("Projeto atualizado!")
       } else {
-        setProjects((prev) => [
-          { id: crypto.randomUUID(), ...data },
-          ...prev,
-        ])
+        addProjectDb(session.user.id, {
+          name: data.name,
+          description: data.description,
+          technologies: data.technologies,
+          images: null,
+          links: data.link || null,
+          results: data.results || null,
+          skillsAcquired: "",
+        })
         toast.success("Projeto adicionado!")
       }
       setIsAdding(false)
       setEditingId(null)
+      reload()
     } catch {
       toast.error("Erro ao salvar projeto")
     } finally {
@@ -117,9 +122,14 @@ export default function ProjectsPage() {
     }
   }
 
-  function deleteProject(id: string) {
-    setProjects((prev) => prev.filter((p) => p.id !== id))
+  function handleDeleteProject(id: string) {
+    deleteProjectDb(id)
+    reload()
     toast.success("Projeto removido")
+  }
+
+  if (authLoading || !session) {
+    return <div className="flex justify-center py-16"><Loader2 className="animate-spin" /></div>
   }
 
   return (
@@ -139,7 +149,6 @@ export default function ProjectsPage() {
         </button>
       </div>
 
-      {/* Add/Edit Form */}
       {isAdding && (
         <div className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center justify-between mb-4">
@@ -282,7 +291,6 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Projects Grid */}
       {projects.length === 0 && !isAdding && (
         <div className="rounded-xl border border-dashed border-zinc-300 p-16 text-center dark:border-zinc-700">
           <FolderKanban
@@ -317,7 +325,7 @@ export default function ProjectsPage() {
                   <Edit3 size={14} />
                 </button>
                 <button
-                  onClick={() => deleteProject(project.id)}
+                  onClick={() => handleDeleteProject(project.id)}
                   className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950"
                 >
                   <Trash2 size={14} />
@@ -343,24 +351,14 @@ export default function ProjectsPage() {
               </p>
             )}
             <div className="mt-3 flex gap-3">
-              {project.link && (
+              {project.links && (
                 <a
-                  href={project.link}
+                  href={project.links}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 dark:text-violet-400"
                 >
                   <ExternalLink size={12} /> Site
-                </a>
-              )}
-              {project.github && (
-                <a
-                  href={project.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                >
-                  <GitBranch size={12} /> Código
                 </a>
               )}
             </div>

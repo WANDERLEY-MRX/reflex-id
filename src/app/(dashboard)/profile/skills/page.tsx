@@ -1,19 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Plus, Trash2, Loader2, CheckCircle, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useLocalAuth } from "@/providers/local-auth-provider"
+import {
+  getSkillsByUserId,
+  addSkill as addSkillDb,
+  updateSkillLevel,
+  removeSkill,
+  type LocalSkill,
+} from "@/lib/local-db"
 
 type SkillCategory = "soft" | "hard" | "language"
-
-interface Skill {
-  id: string
-  name: string
-  level: number
-  category: SkillCategory
-  verified: boolean
-}
 
 const categoryLabels: Record<SkillCategory, string> = {
   soft: "Soft Skills",
@@ -21,47 +22,41 @@ const categoryLabels: Record<SkillCategory, string> = {
   language: "Idiomas",
 }
 
-const initialSkills: Skill[] = [
-  { id: "1", name: "Comunicação", level: 4, category: "soft", verified: true },
-  { id: "2", name: "Liderança", level: 3, category: "soft", verified: false },
-  {
-    id: "3",
-    name: "TypeScript",
-    level: 5,
-    category: "hard",
-    verified: true,
-  },
-  { id: "4", name: "React", level: 4, category: "hard", verified: true },
-  { id: "5", name: "Node.js", level: 3, category: "hard", verified: false },
-  { id: "6", name: "Inglês", level: 4, category: "language", verified: true },
-  { id: "7", name: "Espanhol", level: 2, category: "language", verified: false },
-]
-
 export default function SkillsPage() {
-  const [skills, setSkills] = useState<Skill[]>(initialSkills)
+  const router = useRouter()
+  const { session, loading: authLoading } = useLocalAuth()
+  const [skills, setSkills] = useState<LocalSkill[]>([])
   const [newSkill, setNewSkill] = useState("")
   const [newLevel, setNewLevel] = useState(3)
   const [newCategory, setNewCategory] = useState<SkillCategory>("hard")
   const [isAdding, setIsAdding] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
+  useEffect(() => {
+    if (!authLoading && !session) {
+      router.push("/login")
+    }
+  }, [session, authLoading, router])
+
+  useEffect(() => {
+    if (session) {
+      setSkills(getSkillsByUserId(session.user.id))
+    }
+  }, [session])
+
+  function reload() {
+    if (session) setSkills(getSkillsByUserId(session.user.id))
+  }
+
   async function addSkill() {
-    if (!newSkill.trim()) return
+    if (!newSkill.trim() || !session) return
     setIsLoading(true)
     try {
-      setSkills((prev) => [
-        {
-          id: crypto.randomUUID(),
-          name: newSkill.trim(),
-          level: newLevel,
-          category: newCategory,
-          verified: false,
-        },
-        ...prev,
-      ])
+      addSkillDb(session.user.id, newSkill.trim(), newCategory, newLevel)
       setNewSkill("")
       setNewLevel(3)
       setIsAdding(false)
+      reload()
       toast.success("Competência adicionada!")
     } catch {
       toast.error("Erro ao adicionar competência")
@@ -70,17 +65,15 @@ export default function SkillsPage() {
     }
   }
 
-  function deleteSkill(id: string) {
-    setSkills((prev) => prev.filter((s) => s.id !== id))
+  function handleDeleteSkill(id: string) {
+    removeSkill(id)
+    reload()
     toast.success("Competência removida")
   }
 
-  function updateLevel(id: string, level: number) {
-    setSkills((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, level: Math.max(1, Math.min(5, level)) } : s,
-      ),
-    )
+  function handleUpdateLevel(id: string, level: number) {
+    updateSkillLevel(id, Math.max(1, Math.min(5, level)))
+    reload()
   }
 
   const grouped = Object.entries(categoryLabels).map(([cat, label]) => ({
@@ -88,6 +81,10 @@ export default function SkillsPage() {
     label,
     items: skills.filter((s) => s.category === cat),
   }))
+
+  if (authLoading || !session) {
+    return <div className="flex justify-center py-16"><Loader2 className="animate-spin" /></div>
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -106,7 +103,6 @@ export default function SkillsPage() {
         </button>
       </div>
 
-      {/* Add Form */}
       {isAdding && (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-wrap items-end gap-3">
@@ -163,7 +159,6 @@ export default function SkillsPage() {
         </div>
       )}
 
-      {/* Skills by Category */}
       <div className="space-y-8">
         {grouped.map(({ category, label, items }) => (
           <div key={category}>
@@ -209,7 +204,7 @@ export default function SkillsPage() {
                       {[1, 2, 3, 4, 5].map((level) => (
                         <button
                           key={level}
-                          onClick={() => updateLevel(skill.id, level)}
+                          onClick={() => handleUpdateLevel(skill.id, level)}
                           className={cn(
                             "h-2 w-6 rounded-full transition-colors",
                             level <= skill.level
@@ -222,7 +217,7 @@ export default function SkillsPage() {
                     </div>
 
                     <button
-                      onClick={() => deleteSkill(skill.id)}
+                      onClick={() => handleDeleteSkill(skill.id)}
                       className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950"
                     >
                       <Trash2 size={14} />

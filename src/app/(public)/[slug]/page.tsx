@@ -1,20 +1,85 @@
+"use client"
+
+import { use, useState, useEffect } from "react"
 import Link from "next/link"
-import { notFound } from "next/navigation"
-import { getProfileBySlug, getUserById, getSkillsByUserId, getProjectsByUserId, getEvidencesByUserId, getTimelineByUserId } from "@/lib/local-db"
+import { notFound, useParams } from "next/navigation"
+import { Loader2 } from "lucide-react"
+import {
+  getProfileBySlug,
+  getUserById,
+  getSkillsByUserId,
+  getProjectsByUserId,
+  getEvidencesByUserId,
+  getTimelineByUserId,
+  type LocalProfile,
+  type LocalUser,
+  type LocalSkill,
+  type LocalProject,
+  type LocalEvidence,
+  type LocalTimelineEvent,
+} from "@/lib/local-db"
 
-export default async function PublicProfilePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
+interface ProfileData {
+  user: LocalUser
+  profile: LocalProfile
+  skills: LocalSkill[]
+  projects: LocalProject[]
+  evidences: LocalEvidence[]
+  timeline: LocalTimelineEvent[]
+}
 
-  const profile = getProfileBySlug(slug)
-  if (!profile) notFound()
+export default function PublicProfilePage() {
+  const params = useParams()
+  const slug = params.slug as string
+  const [data, setData] = useState<ProfileData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound_, setNotFound] = useState(false)
 
-  const user = getUserById(profile.userId)
-  if (!user) notFound()
+  useEffect(() => {
+    const profile = getProfileBySlug(slug)
+    if (!profile) {
+      setNotFound(true)
+      setLoading(false)
+      return
+    }
+    const user = getUserById(profile.userId)
+    if (!user) {
+      setNotFound(true)
+      setLoading(false)
+      return
+    }
+    setData({
+      user,
+      profile,
+      skills: getSkillsByUserId(user.id),
+      projects: getProjectsByUserId(user.id),
+      evidences: getEvidencesByUserId(user.id),
+      timeline: getTimelineByUserId(user.id),
+    })
+    setLoading(false)
+  }, [slug])
 
-  const skills = getSkillsByUserId(user.id)
-  const projects = getProjectsByUserId(user.id)
-  const evidences = getEvidencesByUserId(user.id)
-  const timeline = getTimelineByUserId(user.id)
+  if (loading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+      </div>
+    )
+  }
+
+  if (notFound_ || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <h1 className="text-2xl font-bold">Perfil não encontrado</h1>
+        <p className="mt-2 text-zinc-500">Este perfil público não existe.</p>
+        <Link href="/" className="mt-4 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400">
+          Voltar ao início
+        </Link>
+      </div>
+    )
+  }
+
+  const { user, profile, skills, projects, evidences, timeline } = data
 
   return (
     <div className="mx-auto max-w-4xl space-y-12 py-12">

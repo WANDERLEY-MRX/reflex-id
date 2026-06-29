@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -18,6 +19,12 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useLocalAuth } from "@/providers/local-auth-provider"
+import {
+  getTimelineByUserId,
+  addTimelineEvent as addTimelineEventDb,
+  type LocalTimelineEvent,
+} from "@/lib/local-db"
 
 const timelineSchema = z.object({
   title: z.string().min(2, "Título deve ter no mínimo 2 caracteres"),
@@ -42,33 +49,10 @@ const categoryIcons: Record<string, typeof Briefcase> = {
   personal: Heart,
 }
 
-interface Event {
-  id: string
-  title: string
-  description: string
-  date: string
-  category: string
-}
-
-const initialEvents: Event[] = [
-  {
-    id: "1",
-    title: "Início como Dev na Empresa X",
-    description: "Comecei como desenvolvedor full stack",
-    date: "2024-03-01",
-    category: "work",
-  },
-  {
-    id: "2",
-    title: "Curso de Machine Learning",
-    description: "Concluí o curso avançado de ML",
-    date: "2024-01-15",
-    category: "education",
-  },
-]
-
 export default function TimelinePage() {
-  const [events, setEvents] = useState<Event[]>(initialEvents)
+  const router = useRouter()
+  const { session, loading: authLoading } = useLocalAuth()
+  const [events, setEvents] = useState<LocalTimelineEvent[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>("all")
@@ -83,6 +67,18 @@ export default function TimelinePage() {
     resolver: zodResolver(timelineSchema),
   })
 
+  useEffect(() => {
+    if (!authLoading && !session) router.push("/login")
+  }, [session, authLoading, router])
+
+  useEffect(() => {
+    if (session) setEvents(getTimelineByUserId(session.user.id))
+  }, [session])
+
+  function reload() {
+    if (session) setEvents(getTimelineByUserId(session.user.id))
+  }
+
   const filteredEvents =
     filter === "all"
       ? events
@@ -94,10 +90,10 @@ export default function TimelinePage() {
     setEditingId(null)
   }
 
-  function openEdit(event: Event) {
+  function openEdit(event: LocalTimelineEvent) {
     reset({
       title: event.title,
-      description: event.description,
+      description: event.description ?? "",
       date: event.date,
       category: event.category as TimelineData["category"],
     })
@@ -106,25 +102,20 @@ export default function TimelinePage() {
   }
 
   async function onSubmit(data: TimelineData) {
+    if (!session) return
     setIsLoading(true)
     try {
-      if (editingId) {
-        setEvents((prev) =>
-          prev.map((e) =>
-            e.id === editingId ? { ...e, ...data } : e,
-          ),
-        )
-        toast.success("Evento atualizado!")
-      } else {
-        const newEvent: Event = {
-          id: crypto.randomUUID(),
-          ...data,
-        }
-        setEvents((prev) => [newEvent, ...prev])
-        toast.success("Evento adicionado!")
-      }
+      addTimelineEventDb(session.user.id, {
+        title: data.title,
+        description: data.description,
+        date: data.date,
+        category: data.category,
+        verifiedById: null,
+      })
       setIsAdding(false)
       setEditingId(null)
+      reload()
+      toast.success("Evento adicionado!")
     } catch {
       toast.error("Erro ao salvar evento")
     } finally {
@@ -133,8 +124,14 @@ export default function TimelinePage() {
   }
 
   function deleteEvent(id: string) {
-    setEvents((prev) => prev.filter((e) => e.id !== id))
+    const events2 = events.filter((e) => e.id !== id)
+    localStorage.setItem("reflexid_timeline", JSON.stringify(events2))
+    reload()
     toast.success("Evento removido")
+  }
+
+  if (authLoading || !session) {
+    return <div className="flex justify-center py-16"><Loader2 className="animate-spin" /></div>
   }
 
   return (
@@ -154,7 +151,6 @@ export default function TimelinePage() {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-2">
         {["all", "work", "education", "achievement", "personal"].map(
           (cat) => (
@@ -174,7 +170,6 @@ export default function TimelinePage() {
         )}
       </div>
 
-      {/* Add/Edit Form */}
       {isAdding && (
         <div className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center justify-between mb-4">
@@ -287,14 +282,13 @@ export default function TimelinePage() {
                 className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {isLoading && <Loader2 size={14} className="animate-spin" />}
-                {editingId ? "Salvar" : "Adicionar"}
+                Adicionar
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Timeline List */}
       <div className="relative space-y-0">
         {filteredEvents.length === 0 && (
           <div className="rounded-xl border border-dashed border-zinc-300 p-12 text-center dark:border-zinc-700">
