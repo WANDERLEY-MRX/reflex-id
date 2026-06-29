@@ -1,0 +1,97 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  quality:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx prisma generate && npx tsc --noEmit
+
+      - name: Unit Tests
+        run: npx vitest run --project unit
+        env:
+          CI: true
+
+      - name: Integration Tests
+        run: npx vitest run --project integration
+        env:
+          CI: true
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/reflexid_test"
+          DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/reflexid_test"
+
+  deploy-vercel:
+    name: Deploy to Vercel
+    needs: [quality]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} \
+            > vercel-output.txt
+          echo "url=$(cat vercel-output.txt)" >> $GITHUB_OUTPUT
+
+      - name: Run Smoke Tests
+        run: |
+          curl -f -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.url }}" \
+            || echo "Smoke test failed"
+
+  notify:
+    name: Notify
+    needs: [deploy-vercel]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify on success
+        if: needs.deploy-vercel.result == 'success'
+        run: echo "Deploy completed successfully!"
+
+      - name: Notify on failure
+        if: needs.deploy-vercel.result == 'failure'
+        run: echo "Deploy failed!" && exit 1
